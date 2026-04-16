@@ -3,105 +3,195 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VFR Alçalma Planlayıcısı | Kaptan Semih Batuk</title>
+    <title>VFR Descent Planner | EFB Pro</title>
     <style>
+        :root {
+            --bg-main: #0f172a;      /* Derin havacılık laciverti */
+            --bg-card: #1e293b;      /* Panel arka planı */
+            --text-main: #f8fafc;    /* Parlak beyaz metin */
+            --text-muted: #94a3b8;   /* Soluk gri */
+            --accent-cyan: #06b6d4;  /* Ekrana özgü camgöbeği */
+            --accent-green: #22c55e; /* Emniyet yeşili */
+            --accent-amber: #f59e0b; /* Uyarı sarısı */
+            --accent-red: #ef4444;   /* Tehlike kırmızısı */
+        }
         body {
-            background-color: #121212;
-            color: #00FF00;
-            font-family: 'Courier New', Courier, monospace;
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            margin: 0;
+            padding: 20px;
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
-            margin: 0;
+            min-height: 100vh;
         }
-        .cockpit-panel {
-            background-color: #1E1E1E;
-            border: 2px solid #333;
-            border-radius: 10px;
-            padding: 30px;
-            box-shadow: 0 0 20px rgba(0, 255, 0, 0.2);
-            max-width: 400px;
+        .efb-panel {
+            background-color: var(--bg-card);
+            border-radius: 16px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
             width: 100%;
+            max-width: 500px;
+            padding: 30px;
+            border: 1px solid #334155;
         }
-        h2 {
+        .header {
             text-align: center;
-            border-bottom: 1px solid #00FF00;
-            padding-bottom: 10px;
+            margin-bottom: 25px;
+            border-bottom: 2px solid #334155;
+            padding-bottom: 15px;
         }
-        .input-group {
-            margin-bottom: 15px;
+        .header h2 {
+            margin: 0;
+            color: var(--accent-cyan);
+            font-size: 26px;
+            letter-spacing: 1.5px;
         }
+        .header p {
+            margin: 5px 0 0 0;
+            color: var(--text-muted);
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .input-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .input-group { display: flex; flex-direction: column; }
         label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
+            font-size: 12px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin-bottom: 6px;
+            font-weight: 600;
         }
         input {
-            width: 100%;
-            padding: 8px;
-            background-color: #000;
-            color: #00FF00;
-            border: 1px solid #00FF00;
-            border-radius: 4px;
-            box-sizing: border-box;
-            font-family: inherit;
+            background-color: #0f172a;
+            border: 1px solid #334155;
+            color: #fff;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 16px;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+        input:focus {
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 8px rgba(6, 182, 212, 0.3);
         }
         button {
-            width: 100%;
-            padding: 10px;
-            background-color: #00FF00;
-            color: #000;
+            background-color: var(--accent-cyan);
+            color: #0f172a;
             border: none;
-            border-radius: 4px;
-            font-weight: bold;
+            padding: 16px;
+            border-radius: 8px;
+            width: 100%;
             font-size: 16px;
+            font-weight: bold;
             cursor: pointer;
+            transition: background-color 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        button:hover { background-color: #0891b2; }
+        
+        .results-container {
+            margin-top: 20px;
+            background-color: #0f172a;
+            border-radius: 12px;
+            border: 1px solid #334155;
+            padding: 20px;
+            display: none; /* Hesaplama yapılana kadar gizli */
+        }
+        .data-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+            align-items: center;
+        }
+        .data-item { text-align: left; }
+        .data-item span {
+            display: block;
+            font-size: 11px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+        .data-item strong {
+            font-size: 24px;
+            color: var(--text-main);
+        }
+        .highlight { color: var(--accent-cyan) !important; }
+        
+        .status-box {
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        .status-ok { background-color: rgba(34, 197, 94, 0.1); color: var(--accent-green); border: 1px solid var(--accent-green); }
+        .status-warn { background-color: rgba(245, 158, 11, 0.1); color: var(--accent-amber); border: 1px solid var(--accent-amber); }
+        .status-danger { background-color: rgba(239, 68, 68, 0.1); color: var(--accent-red); border: 1px solid var(--accent-red); }
+
+        /* Grafik Ekranı */
+        canvas {
+            width: 100%;
+            height: 160px;
+            background-color: #000;
+            border-radius: 8px;
+            border: 1px solid #334155;
             margin-top: 10px;
         }
-        button:hover {
-            background-color: #00CC00;
-        }
-        .results {
-            margin-top: 20px;
-            padding: 15px;
-            background-color: #000;
-            border: 1px dashed #00FF00;
-            border-radius: 4px;
-            display: none;
-        }
-        .warning { color: #FFD700; }
-        .danger { color: #FF4500; }
     </style>
 </head>
 <body>
 
-<div class="cockpit-panel">
-    <h2>VFR DESCENT PLANNER</h2>
+<div class="efb-panel">
+    <div class="header">
+        <h2>DESCENT PLANNER</h2>
+        <p>VFR & IFR Flight Profile Calculator</p>
+    </div>
     
-    <div class="input-group">
-        <label>Mevcut İrtifa (Feet):</label>
-        <input type="number" id="currentAlt" placeholder="Örn: 10000">
-    </div>
-    <div class="input-group">
-        <label>Hedef İrtifa (Feet):</label>
-        <input type="number" id="targetAlt" placeholder="Örn: 2000">
-    </div>
-    <div class="input-group">
-        <label>Yer Hızı - GS (Knots):</label>
-        <input type="number" id="groundSpeed" placeholder="Örn: 120">
-    </div>
-    <div class="input-group">
-        <label>Hedefe Kalan Mesafe (NM):</label>
-        <input type="number" id="distance" placeholder="Örn: 40">
+    <div class="input-grid">
+        <div class="input-group">
+            <label>Mevcut İrtifa (FT)</label>
+            <input type="number" id="currentAlt" placeholder="Örn: 8500">
+        </div>
+        <div class="input-group">
+            <label>Hedef İrtifa (FT)</label>
+            <input type="number" id="targetAlt" placeholder="Örn: 1500">
+        </div>
+        <div class="input-group">
+            <label>Yer Hızı - GS (KT)</label>
+            <input type="number" id="groundSpeed" placeholder="Örn: 130">
+        </div>
+        <div class="input-group">
+            <label>Kalan Mesafe (NM)</label>
+            <input type="number" id="distance" placeholder="Örn: 35">
+        </div>
     </div>
 
-    <button onclick="calculateDescent()">HESAPLA</button>
+    <button onclick="calculateDescent()">PROFİLİ HESAPLA</button>
 
-    <div class="results" id="resultBox">
-        <p><strong>TOD (Alçalma Noktası):</strong> <span id="todResult"></span> NM kala</p>
-        <p><strong>Gerekli Varyo:</strong> <span id="vsiResult"></span> fpm</p>
-        <p><strong>Durum:</strong> <span id="statusResult"></span></p>
+    <div class="results-container" id="resultBox">
+        <div id="statusResult" class="status-box"></div>
+        
+        <div class="data-row">
+            <div class="data-item">
+                <span>İdeal TOD Noktası</span>
+                <strong id="todResult" class="highlight">--</strong> <strong>NM</strong>
+            </div>
+            <div class="data-item" style="text-align: right;">
+                <span>Gerekli Çöküş (VSI)</span>
+                <strong id="vsiResult" class="highlight">--</strong> <strong>FPM</strong>
+            </div>
+        </div>
+        
+        <canvas id="flightProfileCanvas"></canvas>
     </div>
 </div>
 
@@ -113,40 +203,133 @@
         let dist = parseFloat(document.getElementById('distance').value);
 
         if(isNaN(currentAlt) || isNaN(targetAlt) || isNaN(gs) || isNaN(dist)) {
-            alert("Kaptan, lütfen tüm uçuş verilerini eksiksiz girin!");
+            alert("Lütfen tüm uçuş verilerini eksiksiz girin Kaptan!");
             return;
         }
 
         let altToLose = currentAlt - targetAlt;
         let tod = (altToLose / 1000) * 3;
         let vsi = gs * 5;
-        let statusText = "";
         let statusElement = document.getElementById('statusResult');
         
-        statusElement.className = ""; // Reset class
-
+        // Durum Mantığı
         if (dist > tod) {
             let remain = dist - tod;
-            statusText = "Seyre devam. Alçalmaya " + remain.toFixed(1) + " NM var.";
+            statusElement.innerText = "SEYRE DEVAM (" + remain.toFixed(1) + " NM SONRA ALÇAL)";
+            statusElement.className = "status-box status-ok";
         } else {
             let requiredAltNow = targetAlt + (dist / 3) * 1000;
             let diff = currentAlt - requiredAltNow;
             
             if (diff > 100) {
-                statusText = "Profilin " + diff.toFixed(0) + " ft ÜSTÜNDESİN! Varyoyu artır.";
-                statusElement.className = "danger";
+                statusElement.innerText = "PROFİLİN " + diff.toFixed(0) + " FT ÜSTÜNDESİN!";
+                statusElement.className = "status-box status-danger";
             } else if (diff < -100) {
-                statusText = "Profilin " + Math.abs(diff).toFixed(0) + " ft ALTINDASIN! Alçalmayı azalt.";
-                statusElement.className = "warning";
+                statusElement.innerText = "PROFİLİN " + Math.abs(diff).toFixed(0) + " FT ALTINDASIN!";
+                statusElement.className = "status-box status-warn";
             } else {
-                statusText = "Profil üzerindesin, süzülüş harika!";
+                statusElement.innerText = "PROFİL ÜZERİNDESİN, SÜZÜLÜŞ HARİKA!";
+                statusElement.className = "status-box status-ok";
             }
         }
 
         document.getElementById('todResult').innerText = tod.toFixed(1);
         document.getElementById('vsiResult').innerText = vsi.toFixed(0);
-        statusElement.innerText = statusText;
         document.getElementById('resultBox').style.display = "block";
+
+        drawProfile(currentAlt, targetAlt, dist, tod);
+    }
+
+    // Canvas üzerinde görselleştirme (G1000 tarzı)
+    function drawProfile(currentAlt, targetAlt, dist, tod) {
+        const canvas = document.getElementById('flightProfileCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Cihaz piksel yoğunluğuna göre ayar
+        canvas.width = canvas.parentElement.clientWidth;
+        canvas.height = 160;
+        const width = canvas.width;
+        const height = canvas.height;
+
+        ctx.clearRect(0, 0, width, height);
+
+        // Zemin çizgisi çiz
+        const groundY = height - 30;
+        ctx.beginPath();
+        ctx.moveTo(20, groundY);
+        ctx.lineTo(width - 20, groundY);
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        // Hedef (Meydan/VOR) İkonu çiz
+        const targetX = width - 40;
+        ctx.fillStyle = '#06b6d4';
+        ctx.beginPath();
+        ctx.arc(targetX, groundY, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '10px sans-serif';
+        ctx.fillText('HEDEF', targetX - 15, groundY + 15);
+
+        // İdeal Süzülüş Hattını (Glide Path) çiz
+        let todX;
+        if (dist >= tod) {
+            // Uçak TOD'dan uzakta
+            todX = targetX - (width * 0.6); // TOD'u ekranda sabitle
+        } else {
+            // Uçak TOD'u geçmiş
+            todX = 40; // TOD ekranın solunda kalır
+        }
+        const todY = 40; // Üstteki ideal irtifa noktası
+
+        ctx.beginPath();
+        ctx.setLineDash([5, 5]);
+        ctx.moveTo(todX, todY);
+        ctx.lineTo(targetX, groundY);
+        ctx.strokeStyle = '#22c55e'; // Yeşil kesikli çizgi
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.setLineDash([]); // Çizgi stilini sıfırla
+
+        // İdeal TOD Noktasını işaretle
+        ctx.fillStyle = '#22c55e';
+        ctx.beginPath();
+        ctx.arc(todX, todY, 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.fillText('TOD', todX - 10, todY - 10);
+
+        // Uçağı Çiz (Pozisyonu hesaplayarak)
+        let planeX, planeY;
+        if (dist >= tod) {
+            // Seyir irtifasında düz uçuyor
+            planeY = todY;
+            planeX = todX - ((dist - tod) * 5); // TOD'un gerisinde
+            if(planeX < 20) planeX = 20; // Ekrandan taşmasın
+        } else {
+            // Alçalma profilinde
+            let progress = 1 - (dist / tod); // 0 ile 1 arası
+            planeX = todX + (progress * (targetX - todX));
+            
+            // Gerçek irtifasına göre uçağın dikey pozisyonu
+            let totalAltDiff = currentAlt - targetAlt; // Kalan
+            let initialAltDiff = (tod * 1000) / 3; // Başlangıçta inilmesi gereken toplam
+            let altRatio = totalAltDiff / initialAltDiff; 
+            
+            // Eğer profilin çok üstündeyse ekrandan taşmasın diye sınırla
+            if(altRatio > 1.2) altRatio = 1.2;
+            
+            planeY = groundY - (altRatio * (groundY - todY));
+        }
+
+        ctx.font = '24px sans-serif';
+        ctx.fillText('✈️', planeX - 12, planeY + 8);
+        
+        // Uçak etiketini yaz
+        ctx.fillStyle = '#38bdf8';
+        ctx.font = '10px sans-serif';
+        ctx.fillText(`${dist} NM`, planeX - 10, planeY - 15);
     }
 </script>
 
