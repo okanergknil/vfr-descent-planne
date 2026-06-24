@@ -70,18 +70,18 @@
     let simData = { currentAlt: 0, groundSpeed: 0, distance: 0, targetAlt: 1500 };
     const fsuipcUrl = 'ws://localhost:2048/fsuipc/';
     let socket;
+    let pollInterval;
 
     function connectFSUIPC() {
         socket = new WebSocket(fsuipcUrl, 'fsuipc');
 
         socket.onopen = function() {
-            console.log("✅ WebSocket Açıldı, değişkenler beyan ediliyor...");
             let statusEl = document.getElementById('connectionStatus');
             statusEl.innerText = "SİMÜLATÖRE CANLI BAĞLI 🟢";
             statusEl.className = "status-box status-ok";
             document.getElementById('resultBox').style.display = "block";
 
-            // 1. Adım: Değişkenleri tanıt
+            // Değişkenleri tanıt
             const declareVars = {
                 "command": "vars.declare",
                 "name": "efbLink",
@@ -92,21 +92,24 @@
                 ]
             };
             socket.send(JSON.stringify(declareVars));
-            // 2. Adım Subscribe işlemi, sunucu bu paketi onaylayınca yapılacak (onmessage içinde)
         };
 
         socket.onmessage = function(event) {
             const response = JSON.parse(event.data);
             
-            // Eğer FSUIPC değişkenlerimizi kaydettiyse, şimdi veri akışını (subscribe) başlat
+            // Eğer FSUIPC değişkenlerimizi kaydettiyse, zorla çekme (polling) döngüsünü başlat
             if (response.command === "vars.declare" && response.success === true) {
-                console.log("✅ Değişkenler FSUIPC tarafından onaylandı, akış başlatılıyor...");
-                const subscribeVars = {
-                    "command": "vars.subscribe",
-                    "name": "efbLink",
-                    "interval": 1000 
-                };
-                socket.send(JSON.stringify(subscribeVars));
+                if(pollInterval) clearInterval(pollInterval);
+                
+                // Saniyede 1 kere FSUIPC'den veriyi talep et
+                pollInterval = setInterval(() => {
+                    if (socket.readyState === WebSocket.OPEN) {
+                        socket.send(JSON.stringify({
+                            "command": "vars.read",
+                            "name": "efbLink"
+                        }));
+                    }
+                }, 1000);
             }
 
             // Gelen uçuş verilerini işle ve arayüze bas
@@ -131,7 +134,10 @@
         };
 
         socket.onerror = function(error) { console.error("Hata:", error); };
-        socket.onclose = function() { setTimeout(connectFSUIPC, 3000); };
+        socket.onclose = function() { 
+            if(pollInterval) clearInterval(pollInterval);
+            setTimeout(connectFSUIPC, 3000); 
+        };
     }
 
     function processDescentProfile() {
