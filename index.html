@@ -196,35 +196,110 @@
 </div>
 
 <script>
-    function calculateDescent() {
-        let currentAlt = parseFloat(document.getElementById('currentAlt').value);
-        let targetAlt = parseFloat(document.getElementById('targetAlt').value);
-        let gs = parseFloat(document.getElementById('groundSpeed').value);
-        let dist = parseFloat(document.getElementById('distance').value);
+    // Değişkenleri tanımlayalım
+    let currentAlt = 0;
+    let groundSpeed = 0;
+    let distanceToWp = 0;
+    let targetAlt = 1500; // Varsayılan hedef irtifa, bunu kullanıcı arayüzden de değiştirebilir
 
-        if(isNaN(currentAlt) || isNaN(targetAlt) || isNaN(gs) || isNaN(dist)) {
-            alert("Lütfen tüm uçuş verilerini eksiksiz girin Kaptan!");
-            return;
+    // FSUIPC WebSocket Sunucusuna Bağlantı (Varsayılan port 2048'dir)
+    const socket = new WebSocket('ws://localhost:2048/fsuipc');
+
+    socket.onopen = function() {
+        console.log("✅ FSUIPC WebSocket'e bağlanıldı!");
+        document.getElementById('statusResult').innerText = "SİMÜLATÖRE BAĞLI (VERİ BEKLENİYOR...)";
+        document.getElementById('statusResult').className = "status-box status-ok";
+        document.getElementById('resultBox').style.display = "block";
+
+        // Bağlantı açıldığında FSUIPC'den hangi verileri istediğimizi bildiriyoruz (SimVars)
+        const declareVars = {
+            "command": "vars.declare",
+            "name": "efbData",
+            "vars": [
+                { "name": "altitude", "simulatorVariable": "INDICATED ALTITUDE", "units": "Feet" },
+                { "name": "gs", "simulatorVariable": "GPS GROUND SPEED", "units": "Knots" },
+                { "name": "distance", "simulatorVariable": "GPS WP DISTANCE", "units": "Nautical miles" }
+            ]
+        };
+        socket.send(JSON.stringify(declareVars));
+
+        // Verileri saniyede 1 kez (1000ms) bize otomatik göndermesini istiyoruz
+        const subscribeVars = {
+            "command": "vars.subscribe",
+            "name": "efbData",
+            "interval": 1000 
+        };
+        socket.send(JSON.stringify(subscribeVars));
+    };
+
+    // FSUIPC'den her saniye yeni veri geldiğinde bu fonksiyon tetiklenir
+    socket.onmessage = function(event) {
+        const response = JSON.parse(event.data);
+
+        // Eğer gelen mesaj bizim verilerimiz ise:
+        if (response.command === "vars.read" && response.name === "efbData") {
+            let data = response.data;
+
+            currentAlt = data.altitude;
+            groundSpeed = data.gs;
+            distanceToWp = data.distance;
+
+            // Hedef irtifayı ekrandaki kutudan al (Pilot bunu hala manuel girecek)
+            let targetAltInput = document.getElementById('targetAlt').value;
+            if(targetAltInput !== "") {
+                targetAlt = parseFloat(targetAltInput);
+            }
+
+            // Gelen verileri HTML ekrandaki kutulara da yazalım ki gözle görelim
+            document.getElementById('currentAlt').value = currentAlt.toFixed(0);
+            document.getElementById('groundSpeed').value = groundSpeed.toFixed(0);
+            document.getElementById('distance').value = distanceToWp.toFixed(1);
+
+            // Veriler geldiğine göre hesaplamayı otomatik yap!
+            if(groundSpeed > 30) { // Uçak yerdeyken veya çok yavaşken boşuna hesap yapmasın
+                calculateDescent();
+            }
         }
+    };
+
+    socket.onerror = function(error) {
+        console.log("Hata:", error);
+        document.getElementById('statusResult').innerText = "BAĞLANTI HATASI! FSUIPC WS ÇALIŞIYOR MU?";
+        document.getElementById('statusResult').className = "status-box status-danger";
+    };
+
+    socket.onclose = function() {
+        document.getElementById('statusResult').innerText = "SİMÜLATÖR BAĞLANTISI KOPTU";
+        document.getElementById('statusResult').className = "status-box status-warn";
+    };
+
+    // Senin yazdığın hesaplama fonksiyonu (Artık DOM'dan değil, direkt değişkenlerden alıyor)
+    function calculateDescent() {
+        if(currentAlt === 0 || groundSpeed === 0) return;
 
         let altToLose = currentAlt - targetAlt;
         let tod = (altToLose / 1000) * 3;
-        let vsi = gs * 5;
+        let vsi = groundSpeed * 5;
         let statusElement = document.getElementById('statusResult');
         
-        // Durum Mantığı
-        if (dist > tod) {
-            let remain = dist - tod;
+        if (altToLose < 0) {
+            statusElement.innerText = "TIRMANIŞTASINIZ VEYA HEDEF İRTİFA YÜKSEK";
+            statusElement.className = "status-box status-warn";
+            return;
+        }
+
+        if (distanceToWp > tod) {
+            let remain = distanceToWp - tod;
             statusElement.innerText = "SEYRE DEVAM (" + remain.toFixed(1) + " NM SONRA ALÇAL)";
             statusElement.className = "status-box status-ok";
         } else {
-            let requiredAltNow = targetAlt + (dist / 3) * 1000;
+            let requiredAltNow = targetAlt + (distanceToWp / 3) * 1000;
             let diff = currentAlt - requiredAltNow;
             
-            if (diff > 100) {
+            if (diff > 150) {
                 statusElement.innerText = "PROFİLİN " + diff.toFixed(0) + " FT ÜSTÜNDESİN!";
                 statusElement.className = "status-box status-danger";
-            } else if (diff < -100) {
+            } else if (diff < -150) {
                 statusElement.innerText = "PROFİLİN " + Math.abs(diff).toFixed(0) + " FT ALTINDASIN!";
                 statusElement.className = "status-box status-warn";
             } else {
@@ -237,15 +312,14 @@
         document.getElementById('vsiResult').innerText = vsi.toFixed(0);
         document.getElementById('resultBox').style.display = "block";
 
-        drawProfile(currentAlt, targetAlt, dist, tod);
+        drawProfile(currentAlt, targetAlt, distanceToWp, tod);
     }
 
-    // Canvas üzerinde görselleştirme (G1000 tarzı)
+    // Canvas üzerinde görselleştirme (Senin yazdığın kod, aynen duruyor)
     function drawProfile(currentAlt, targetAlt, dist, tod) {
         const canvas = document.getElementById('flightProfileCanvas');
         const ctx = canvas.getContext('2d');
         
-        // Cihaz piksel yoğunluğuna göre ayar
         canvas.width = canvas.parentElement.clientWidth;
         canvas.height = 160;
         const width = canvas.width;
@@ -253,7 +327,6 @@
 
         ctx.clearRect(0, 0, width, height);
 
-        // Zemin çizgisi çiz
         const groundY = height - 30;
         ctx.beginPath();
         ctx.moveTo(20, groundY);
@@ -262,7 +335,6 @@
         ctx.lineWidth = 3;
         ctx.stroke();
 
-        // Hedef (Meydan/VOR) İkonu çiz
         const targetX = width - 40;
         ctx.fillStyle = '#06b6d4';
         ctx.beginPath();
@@ -272,27 +344,23 @@
         ctx.font = '10px sans-serif';
         ctx.fillText('HEDEF', targetX - 15, groundY + 15);
 
-        // İdeal Süzülüş Hattını (Glide Path) çiz
         let todX;
         if (dist >= tod) {
-            // Uçak TOD'dan uzakta
-            todX = targetX - (width * 0.6); // TOD'u ekranda sabitle
+            todX = targetX - (width * 0.6); 
         } else {
-            // Uçak TOD'u geçmiş
-            todX = 40; // TOD ekranın solunda kalır
+            todX = 40; 
         }
-        const todY = 40; // Üstteki ideal irtifa noktası
+        const todY = 40;
 
         ctx.beginPath();
         ctx.setLineDash([5, 5]);
         ctx.moveTo(todX, todY);
         ctx.lineTo(targetX, groundY);
-        ctx.strokeStyle = '#22c55e'; // Yeşil kesikli çizgi
+        ctx.strokeStyle = '#22c55e';
         ctx.lineWidth = 2;
         ctx.stroke();
-        ctx.setLineDash([]); // Çizgi stilini sıfırla
+        ctx.setLineDash([]); 
 
-        // İdeal TOD Noktasını işaretle
         ctx.fillStyle = '#22c55e';
         ctx.beginPath();
         ctx.arc(todX, todY, 4, 0, Math.PI * 2);
@@ -300,24 +368,19 @@
         ctx.fillStyle = '#fff';
         ctx.fillText('TOD', todX - 10, todY - 10);
 
-        // Uçağı Çiz (Pozisyonu hesaplayarak)
         let planeX, planeY;
         if (dist >= tod) {
-            // Seyir irtifasında düz uçuyor
             planeY = todY;
-            planeX = todX - ((dist - tod) * 5); // TOD'un gerisinde
-            if(planeX < 20) planeX = 20; // Ekrandan taşmasın
+            planeX = todX - ((dist - tod) * 5); 
+            if(planeX < 20) planeX = 20; 
         } else {
-            // Alçalma profilinde
-            let progress = 1 - (dist / tod); // 0 ile 1 arası
+            let progress = 1 - (dist / tod); 
             planeX = todX + (progress * (targetX - todX));
             
-            // Gerçek irtifasına göre uçağın dikey pozisyonu
-            let totalAltDiff = currentAlt - targetAlt; // Kalan
-            let initialAltDiff = (tod * 1000) / 3; // Başlangıçta inilmesi gereken toplam
+            let totalAltDiff = currentAlt - targetAlt; 
+            let initialAltDiff = (tod * 1000) / 3; 
             let altRatio = totalAltDiff / initialAltDiff; 
             
-            // Eğer profilin çok üstündeyse ekrandan taşmasın diye sınırla
             if(altRatio > 1.2) altRatio = 1.2;
             
             planeY = groundY - (altRatio * (groundY - todY));
@@ -326,10 +389,9 @@
         ctx.font = '24px sans-serif';
         ctx.fillText('✈️', planeX - 12, planeY + 8);
         
-        // Uçak etiketini yaz
         ctx.fillStyle = '#38bdf8';
         ctx.font = '10px sans-serif';
-        ctx.fillText(`${dist} NM`, planeX - 10, planeY - 15);
+        ctx.fillText(`${dist.toFixed(1)} NM`, planeX - 10, planeY - 15);
     }
 </script>
 
