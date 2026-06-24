@@ -94,7 +94,7 @@
             border-radius: 12px;
             border: 1px solid #334155;
             padding: 20px;
-            display: none; /* İlk bağlantıya kadar gizli */
+            display: none; 
         }
         .data-row {
             display: flex;
@@ -126,7 +126,6 @@
         .status-warn { background-color: rgba(245, 158, 11, 0.1); color: var(--accent-amber); border: 1px solid var(--accent-amber); }
         .status-danger { background-color: rgba(239, 68, 68, 0.1); color: var(--accent-red); border: 1px solid var(--accent-red); }
 
-        /* Grafik Ekranı */
         canvas {
             width: 100%;
             height: 160px;
@@ -195,12 +194,13 @@
         targetAlt: 1500
     };
 
-    // DNS/Localhost sorununu aşmak için doğrudan 127.0.0.1 IP'si kullanılıyor
+    // TAM ADRES BURADA TANIMLI
     const fsuipcUrl = 'ws://localhost:2048/fsuipc/';
     let socket;
 
     function connectFSUIPC() {
-        socket = new WebSocket(fsuipcUrl);
+        // İKİNCİ PARAMETRE OLARAK 'fsuipc' EKLENDİ (Protokol Parolası)
+        socket = new WebSocket(fsuipcUrl, 'fsuipc');
 
         socket.onopen = function() {
             console.log("✅ FSUIPC WebSocket Bağlantısı Başarılı!");
@@ -209,7 +209,6 @@
             statusEl.className = "status-box status-ok";
             document.getElementById('resultBox').style.display = "block";
 
-            // FSUIPC'den hangi SimVar değişkenlerini istediğimizi beyan ediyoruz
             const declareVars = {
                 "command": "vars.declare",
                 "name": "efbLink",
@@ -221,7 +220,6 @@
             };
             socket.send(JSON.stringify(declareVars));
 
-            // Saniyede 1 kere (1000ms) veri göndermesini emrediyoruz
             const subscribeVars = {
                 "command": "vars.subscribe",
                 "name": "efbLink",
@@ -233,22 +231,18 @@
         socket.onmessage = function(event) {
             const response = JSON.parse(event.data);
 
-            // Veriler bizim "efbLink" adıyla istediğimiz paket içindeyse:
             if (response.command === "vars.read" && response.name === "efbLink") {
                 simData.currentAlt = response.data.altitude;
                 simData.groundSpeed = response.data.gs;
                 simData.distance = response.data.dist;
 
-                // Kullanıcının yazdığı hedef irtifayı al
                 let targetInput = document.getElementById('targetAlt').value;
                 if(targetInput !== "") simData.targetAlt = parseFloat(targetInput);
 
-                // HTML arayüzünü güncelle
                 document.getElementById('currentAlt').value = simData.currentAlt.toFixed(0);
                 document.getElementById('groundSpeed').value = simData.groundSpeed.toFixed(0);
                 document.getElementById('distance').value = simData.distance.toFixed(1);
 
-                // Uçak hareket halindeyse profili çiz ve hesapla
                 if (simData.groundSpeed > 10) {
                     processDescentProfile();
                 }
@@ -266,17 +260,15 @@
             let statusEl = document.getElementById('connectionStatus');
             statusEl.innerText = "BAĞLANTI KOPTU, YENİDEN DENENİYOR... 🟠";
             statusEl.className = "status-box status-warn";
-            // Bağlantı koparsa 3 saniye sonra otomatik tekrar dene
             setTimeout(connectFSUIPC, 3000);
         };
     }
 
-    // Alçalma Hesaplama Motoru
     function processDescentProfile() {
         if(simData.currentAlt <= 0 || simData.groundSpeed <= 0) return;
 
         let altToLose = simData.currentAlt - simData.targetAlt;
-        let tod = (altToLose / 1000) * 3; // Standart 3 derece süzülüş kuralı
+        let tod = (altToLose / 1000) * 3;
         let vsi = simData.groundSpeed * 5;
         let pStatus = document.getElementById('statusResult');
         
@@ -312,7 +304,6 @@
         drawCanvas(simData.currentAlt, simData.targetAlt, simData.distance, tod);
     }
 
-    // Grafik Çizim Fonksiyonu (Eski kodunun aynısı)
     function drawCanvas(currentAlt, targetAlt, dist, tod) {
         const canvas = document.getElementById('flightProfileCanvas');
         const ctx = canvas.getContext('2d');
@@ -391,7 +382,6 @@
         ctx.fillText(`${dist.toFixed(1)} NM`, planeX - 10, planeY - 15);
     }
 
-    // Sayfa yüklendiğinde bağlantıyı başlat
     window.onload = function() {
         connectFSUIPC();
     };
