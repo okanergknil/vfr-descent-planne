@@ -75,12 +75,13 @@
         socket = new WebSocket(fsuipcUrl, 'fsuipc');
 
         socket.onopen = function() {
-            console.log("✅ FSUIPC WebSocket Bağlantısı Başarılı!");
+            console.log("✅ WebSocket Açıldı, değişkenler beyan ediliyor...");
             let statusEl = document.getElementById('connectionStatus');
             statusEl.innerText = "SİMÜLATÖRE CANLI BAĞLI 🟢";
             statusEl.className = "status-box status-ok";
             document.getElementById('resultBox').style.display = "block";
 
+            // 1. Adım: Değişkenleri tanıt
             const declareVars = {
                 "command": "vars.declare",
                 "name": "efbLink",
@@ -91,23 +92,25 @@
                 ]
             };
             socket.send(JSON.stringify(declareVars));
-
-            const subscribeVars = {
-                "command": "vars.subscribe",
-                "name": "efbLink",
-                "interval": 1000 
-            };
-            socket.send(JSON.stringify(subscribeVars));
+            // 2. Adım Subscribe işlemi, sunucu bu paketi onaylayınca yapılacak (onmessage içinde)
         };
 
         socket.onmessage = function(event) {
             const response = JSON.parse(event.data);
             
-            // KARA KUTU: FSUIPC'nin gönderdiği veriyi tarayıcı konsoluna yazdır
-            console.log("GELEN VERİ:", response);
+            // Eğer FSUIPC değişkenlerimizi kaydettiyse, şimdi veri akışını (subscribe) başlat
+            if (response.command === "vars.declare" && response.success === true) {
+                console.log("✅ Değişkenler FSUIPC tarafından onaylandı, akış başlatılıyor...");
+                const subscribeVars = {
+                    "command": "vars.subscribe",
+                    "name": "efbLink",
+                    "interval": 1000 
+                };
+                socket.send(JSON.stringify(subscribeVars));
+            }
 
-            // Komut adına katı bir şekilde takılmadan veriyi işlemeyi deniyoruz
-            if (response.name === "efbLink" && response.data) {
+            // Gelen uçuş verilerini işle ve arayüze bas
+            if (response.command === "vars.read" && response.name === "efbLink" && response.data) {
                 simData.currentAlt = response.data.altitude || 0;
                 simData.distance = response.data.dist || 0;
                 
