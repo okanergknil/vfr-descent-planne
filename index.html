@@ -82,29 +82,19 @@
             border-color: var(--accent-cyan);
             box-shadow: 0 0 8px rgba(6, 182, 212, 0.3);
         }
-        button {
-            background-color: var(--accent-cyan);
-            color: #0f172a;
-            border: none;
-            padding: 16px;
-            border-radius: 8px;
-            width: 100%;
-            font-size: 16px;
+        input[readonly] {
+            background-color: #1e293b;
+            color: var(--accent-cyan);
             font-weight: bold;
-            cursor: pointer;
-            transition: background-color 0.2s;
-            text-transform: uppercase;
-            letter-spacing: 1px;
+            border-style: dashed;
         }
-        button:hover { background-color: #0891b2; }
-        
         .results-container {
             margin-top: 20px;
             background-color: #0f172a;
             border-radius: 12px;
             border: 1px solid #334155;
             padding: 20px;
-            display: none; /* Hesaplama yapılana kadar gizli */
+            display: none; /* İlk bağlantıya kadar gizli */
         }
         .data-row {
             display: flex;
@@ -124,7 +114,6 @@
             color: var(--text-main);
         }
         .highlight { color: var(--accent-cyan) !important; }
-        
         .status-box {
             padding: 12px;
             border-radius: 8px;
@@ -153,29 +142,31 @@
 <div class="efb-panel">
     <div class="header">
         <h2>DESCENT PLANNER</h2>
-        <p>VFR & IFR Flight Profile Calculator</p>
+        <p>Otomatik EFB Veri Linki</p>
     </div>
     
+    <div id="connectionStatus" class="status-box status-warn">
+        FSUIPC BAĞLANTISI BEKLENİYOR...
+    </div>
+
     <div class="input-grid">
         <div class="input-group">
-            <label>Mevcut İrtifa (FT)</label>
-            <input type="number" id="currentAlt" placeholder="Örn: 8500">
+            <label>Mevcut İrtifa (FT) [Oto]</label>
+            <input type="number" id="currentAlt" placeholder="---" readonly>
         </div>
         <div class="input-group">
             <label>Hedef İrtifa (FT)</label>
-            <input type="number" id="targetAlt" placeholder="Örn: 1500">
+            <input type="number" id="targetAlt" value="1500" placeholder="Manuel Girin">
         </div>
         <div class="input-group">
-            <label>Yer Hızı - GS (KT)</label>
-            <input type="number" id="groundSpeed" placeholder="Örn: 130">
+            <label>Yer Hızı - GS (KT) [Oto]</label>
+            <input type="number" id="groundSpeed" placeholder="---" readonly>
         </div>
         <div class="input-group">
-            <label>Kalan Mesafe (NM)</label>
-            <input type="number" id="distance" placeholder="Örn: 35">
+            <label>Kalan Mesafe (NM) [Oto]</label>
+            <input type="number" id="distance" placeholder="---" readonly>
         </div>
     </div>
-
-    <button onclick="calculateDescent()">PROFİLİ HESAPLA</button>
 
     <div class="results-container" id="resultBox">
         <div id="statusResult" class="status-box"></div>
@@ -196,127 +187,133 @@
 </div>
 
 <script>
-    // Değişkenleri tanımlayalım
-    let currentAlt = 0;
-    let groundSpeed = 0;
-    let distanceToWp = 0;
-    let targetAlt = 1500; // Varsayılan hedef irtifa, bunu kullanıcı arayüzden de değiştirebilir
+    // Global Uçuş Verileri
+    let simData = {
+        currentAlt: 0,
+        groundSpeed: 0,
+        distance: 0,
+        targetAlt: 1500
+    };
 
-    // FSUIPC WebSocket Sunucusuna Bağlantı (Varsayılan port 2048'dir)
-    const socket = new WebSocket('ws://localhost:2048/fsuipc');
+    // DNS/Localhost sorununu aşmak için doğrudan 127.0.0.1 IP'si kullanılıyor
+    const fsuipcUrl = 'ws://127.0.0.1:2048/fsuipc';
+    let socket;
 
-    socket.onopen = function() {
-        console.log("✅ FSUIPC WebSocket'e bağlanıldı!");
-        document.getElementById('statusResult').innerText = "SİMÜLATÖRE BAĞLI (VERİ BEKLENİYOR...)";
-        document.getElementById('statusResult').className = "status-box status-ok";
-        document.getElementById('resultBox').style.display = "block";
+    function connectFSUIPC() {
+        socket = new WebSocket(fsuipcUrl);
 
-        // Bağlantı açıldığında FSUIPC'den hangi verileri istediğimizi bildiriyoruz (SimVars)
-        const declareVars = {
-            "command": "vars.declare",
-            "name": "efbData",
-            "vars": [
-                { "name": "altitude", "simulatorVariable": "INDICATED ALTITUDE", "units": "Feet" },
-                { "name": "gs", "simulatorVariable": "GPS GROUND SPEED", "units": "Knots" },
-                { "name": "distance", "simulatorVariable": "GPS WP DISTANCE", "units": "Nautical miles" }
-            ]
+        socket.onopen = function() {
+            console.log("✅ FSUIPC WebSocket Bağlantısı Başarılı!");
+            let statusEl = document.getElementById('connectionStatus');
+            statusEl.innerText = "SİMÜLATÖRE CANLI BAĞLI 🟢";
+            statusEl.className = "status-box status-ok";
+            document.getElementById('resultBox').style.display = "block";
+
+            // FSUIPC'den hangi SimVar değişkenlerini istediğimizi beyan ediyoruz
+            const declareVars = {
+                "command": "vars.declare",
+                "name": "efbLink",
+                "vars": [
+                    { "name": "altitude", "simulatorVariable": "INDICATED ALTITUDE", "units": "Feet" },
+                    { "name": "gs", "simulatorVariable": "GPS GROUND SPEED", "units": "Knots" },
+                    { "name": "dist", "simulatorVariable": "GPS WP DISTANCE", "units": "Nautical miles" }
+                ]
+            };
+            socket.send(JSON.stringify(declareVars));
+
+            // Saniyede 1 kere (1000ms) veri göndermesini emrediyoruz
+            const subscribeVars = {
+                "command": "vars.subscribe",
+                "name": "efbLink",
+                "interval": 1000 
+            };
+            socket.send(JSON.stringify(subscribeVars));
         };
-        socket.send(JSON.stringify(declareVars));
 
-        // Verileri saniyede 1 kez (1000ms) bize otomatik göndermesini istiyoruz
-        const subscribeVars = {
-            "command": "vars.subscribe",
-            "name": "efbData",
-            "interval": 1000 
+        socket.onmessage = function(event) {
+            const response = JSON.parse(event.data);
+
+            // Veriler bizim "efbLink" adıyla istediğimiz paket içindeyse:
+            if (response.command === "vars.read" && response.name === "efbLink") {
+                simData.currentAlt = response.data.altitude;
+                simData.groundSpeed = response.data.gs;
+                simData.distance = response.data.dist;
+
+                // Kullanıcının yazdığı hedef irtifayı al
+                let targetInput = document.getElementById('targetAlt').value;
+                if(targetInput !== "") simData.targetAlt = parseFloat(targetInput);
+
+                // HTML arayüzünü güncelle
+                document.getElementById('currentAlt').value = simData.currentAlt.toFixed(0);
+                document.getElementById('groundSpeed').value = simData.groundSpeed.toFixed(0);
+                document.getElementById('distance').value = simData.distance.toFixed(1);
+
+                // Uçak hareket halindeyse profili çiz ve hesapla
+                if (simData.groundSpeed > 10) {
+                    processDescentProfile();
+                }
+            }
         };
-        socket.send(JSON.stringify(subscribeVars));
-    };
 
-    // FSUIPC'den her saniye yeni veri geldiğinde bu fonksiyon tetiklenir
-    socket.onmessage = function(event) {
-        const response = JSON.parse(event.data);
+        socket.onerror = function(error) {
+            console.error("WebSocket Hatası:", error);
+            let statusEl = document.getElementById('connectionStatus');
+            statusEl.innerText = "BAĞLANTI HATASI (FSUIPC SERVER AÇIK MI?) 🔴";
+            statusEl.className = "status-box status-danger";
+        };
 
-        // Eğer gelen mesaj bizim verilerimiz ise:
-        if (response.command === "vars.read" && response.name === "efbData") {
-            let data = response.data;
+        socket.onclose = function() {
+            let statusEl = document.getElementById('connectionStatus');
+            statusEl.innerText = "BAĞLANTI KOPTU, YENİDEN DENENİYOR... 🟠";
+            statusEl.className = "status-box status-warn";
+            // Bağlantı koparsa 3 saniye sonra otomatik tekrar dene
+            setTimeout(connectFSUIPC, 3000);
+        };
+    }
 
-            currentAlt = data.altitude;
-            groundSpeed = data.gs;
-            distanceToWp = data.distance;
+    // Alçalma Hesaplama Motoru
+    function processDescentProfile() {
+        if(simData.currentAlt <= 0 || simData.groundSpeed <= 0) return;
 
-            // Hedef irtifayı ekrandaki kutudan al (Pilot bunu hala manuel girecek)
-            let targetAltInput = document.getElementById('targetAlt').value;
-            if(targetAltInput !== "") {
-                targetAlt = parseFloat(targetAltInput);
-            }
-
-            // Gelen verileri HTML ekrandaki kutulara da yazalım ki gözle görelim
-            document.getElementById('currentAlt').value = currentAlt.toFixed(0);
-            document.getElementById('groundSpeed').value = groundSpeed.toFixed(0);
-            document.getElementById('distance').value = distanceToWp.toFixed(1);
-
-            // Veriler geldiğine göre hesaplamayı otomatik yap!
-            if(groundSpeed > 30) { // Uçak yerdeyken veya çok yavaşken boşuna hesap yapmasın
-                calculateDescent();
-            }
-        }
-    };
-
-    socket.onerror = function(error) {
-        console.log("Hata:", error);
-        document.getElementById('statusResult').innerText = "BAĞLANTI HATASI! FSUIPC WS ÇALIŞIYOR MU?";
-        document.getElementById('statusResult').className = "status-box status-danger";
-    };
-
-    socket.onclose = function() {
-        document.getElementById('statusResult').innerText = "SİMÜLATÖR BAĞLANTISI KOPTU";
-        document.getElementById('statusResult').className = "status-box status-warn";
-    };
-
-    // Senin yazdığın hesaplama fonksiyonu (Artık DOM'dan değil, direkt değişkenlerden alıyor)
-    function calculateDescent() {
-        if(currentAlt === 0 || groundSpeed === 0) return;
-
-        let altToLose = currentAlt - targetAlt;
-        let tod = (altToLose / 1000) * 3;
-        let vsi = groundSpeed * 5;
-        let statusElement = document.getElementById('statusResult');
+        let altToLose = simData.currentAlt - simData.targetAlt;
+        let tod = (altToLose / 1000) * 3; // Standart 3 derece süzülüş kuralı
+        let vsi = simData.groundSpeed * 5;
+        let pStatus = document.getElementById('statusResult');
         
         if (altToLose < 0) {
-            statusElement.innerText = "TIRMANIŞTASINIZ VEYA HEDEF İRTİFA YÜKSEK";
-            statusElement.className = "status-box status-warn";
+            pStatus.innerText = "TIRMANIŞTASINIZ VEYA HEDEF İRTİFA YÜKSEK";
+            pStatus.className = "status-box status-warn";
             return;
         }
 
-        if (distanceToWp > tod) {
-            let remain = distanceToWp - tod;
-            statusElement.innerText = "SEYRE DEVAM (" + remain.toFixed(1) + " NM SONRA ALÇAL)";
-            statusElement.className = "status-box status-ok";
+        if (simData.distance > tod) {
+            let remain = simData.distance - tod;
+            pStatus.innerText = "SEYRE DEVAM (" + remain.toFixed(1) + " NM SONRA ALÇAL)";
+            pStatus.className = "status-box status-ok";
         } else {
-            let requiredAltNow = targetAlt + (distanceToWp / 3) * 1000;
-            let diff = currentAlt - requiredAltNow;
+            let requiredAltNow = simData.targetAlt + (simData.distance / 3) * 1000;
+            let diff = simData.currentAlt - requiredAltNow;
             
             if (diff > 150) {
-                statusElement.innerText = "PROFİLİN " + diff.toFixed(0) + " FT ÜSTÜNDESİN!";
-                statusElement.className = "status-box status-danger";
+                pStatus.innerText = "PROFİLİN " + diff.toFixed(0) + " FT ÜSTÜNDESİN!";
+                pStatus.className = "status-box status-danger";
             } else if (diff < -150) {
-                statusElement.innerText = "PROFİLİN " + Math.abs(diff).toFixed(0) + " FT ALTINDASIN!";
-                statusElement.className = "status-box status-warn";
+                pStatus.innerText = "PROFİLİN " + Math.abs(diff).toFixed(0) + " FT ALTINDASIN!";
+                pStatus.className = "status-box status-warn";
             } else {
-                statusElement.innerText = "PROFİL ÜZERİNDESİN, SÜZÜLÜŞ HARİKA!";
-                statusElement.className = "status-box status-ok";
+                pStatus.innerText = "PROFİL ÜZERİNDESİN, SÜZÜLÜŞ HARİKA!";
+                pStatus.className = "status-box status-ok";
             }
         }
 
         document.getElementById('todResult').innerText = tod.toFixed(1);
         document.getElementById('vsiResult').innerText = vsi.toFixed(0);
-        document.getElementById('resultBox').style.display = "block";
 
-        drawProfile(currentAlt, targetAlt, distanceToWp, tod);
+        drawCanvas(simData.currentAlt, simData.targetAlt, simData.distance, tod);
     }
 
-    // Canvas üzerinde görselleştirme (Senin yazdığın kod, aynen duruyor)
-    function drawProfile(currentAlt, targetAlt, dist, tod) {
+    // Grafik Çizim Fonksiyonu (Eski kodunun aynısı)
+    function drawCanvas(currentAlt, targetAlt, dist, tod) {
         const canvas = document.getElementById('flightProfileCanvas');
         const ctx = canvas.getContext('2d');
         
@@ -393,6 +390,11 @@
         ctx.font = '10px sans-serif';
         ctx.fillText(`${dist.toFixed(1)} NM`, planeX - 10, planeY - 15);
     }
+
+    // Sayfa yüklendiğinde bağlantıyı başlat
+    window.onload = function() {
+        connectFSUIPC();
+    };
 </script>
 
 </body>
