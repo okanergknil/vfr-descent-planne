@@ -194,12 +194,10 @@
         targetAlt: 1500
     };
 
-    // TAM ADRES BURADA TANIMLI
     const fsuipcUrl = 'ws://localhost:2048/fsuipc/';
     let socket;
 
     function connectFSUIPC() {
-        // İKİNCİ PARAMETRE OLARAK 'fsuipc' EKLENDİ (Protokol Parolası)
         socket = new WebSocket(fsuipcUrl, 'fsuipc');
 
         socket.onopen = function() {
@@ -209,13 +207,14 @@
             statusEl.className = "status-box status-ok";
             document.getElementById('resultBox').style.display = "block";
 
+            // Değişken isimleri yerine garantili FSUIPC Offset adreslerini kullanıyoruz
             const declareVars = {
                 "command": "vars.declare",
                 "name": "efbLink",
                 "vars": [
-                    { "name": "altitude", "simulatorVariable": "INDICATED ALTITUDE", "units": "Feet" },
-                    { "name": "gs", "simulatorVariable": "GPS GROUND SPEED", "units": "Knots" },
-                    { "name": "dist", "simulatorVariable": "GPS WP DISTANCE", "units": "Nautical miles" }
+                    { "name": "altitude", "offset": 0x3324, "type": "int", "size": 4 }, // İrtifa (Feet)
+                    { "name": "gs_raw", "offset": 0x02B4, "type": "uint", "size": 4 },  // Yer Hızı (Ham Veri)
+                    { "name": "dist", "offset": 0x60D4, "type": "double", "size": 8 }   // GPS Mesafe (NM)
                 ]
             };
             socket.send(JSON.stringify(declareVars));
@@ -232,18 +231,25 @@
             const response = JSON.parse(event.data);
 
             if (response.command === "vars.read" && response.name === "efbLink") {
-                simData.currentAlt = response.data.altitude;
-                simData.groundSpeed = response.data.gs;
-                simData.distance = response.data.dist;
+                
+                // Gelen verileri işliyoruz (Eğer boş dönerse hata vermesin diye 0 atıyoruz)
+                simData.currentAlt = response.data.altitude || 0;
+                simData.distance = response.data.dist || 0;
+                
+                // FSUIPC yer hızını metre/saniye*65536 olarak verir. Bunu Knots'a çevirmemiz gerekir.
+                let rawGS = response.data.gs_raw || 0;
+                simData.groundSpeed = (rawGS / 65536) * 1.943844;
 
                 let targetInput = document.getElementById('targetAlt').value;
                 if(targetInput !== "") simData.targetAlt = parseFloat(targetInput);
 
+                // Küsüratları temizleyip ekrana basıyoruz
                 document.getElementById('currentAlt').value = simData.currentAlt.toFixed(0);
                 document.getElementById('groundSpeed').value = simData.groundSpeed.toFixed(0);
                 document.getElementById('distance').value = simData.distance.toFixed(1);
 
-                if (simData.groundSpeed > 10) {
+                // Uçak hareket halindeyse (10 knot üzeri) veya mesafe varsa profili hesapla
+                if (simData.groundSpeed > 10 || simData.distance > 0) {
                     processDescentProfile();
                 }
             }
