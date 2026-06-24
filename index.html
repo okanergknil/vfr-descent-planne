@@ -6,37 +6,146 @@
     <title>VFR Descent Planner | EFB Pro</title>
     <style>
         :root {
-            --bg-main: #0f172a;
-            --bg-card: #1e293b;
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
-            --accent-cyan: #06b6d4;
-            --accent-green: #22c55e;
-            --accent-amber: #f59e0b;
-            --accent-red: #ef4444;
+            --bg-main: #0f172a;      /* Derin havacılık laciverti */
+            --bg-card: #1e293b;      /* Panel arka planı */
+            --text-main: #f8fafc;    /* Parlak beyaz metin */
+            --text-muted: #94a3b8;   /* Soluk gri */
+            --accent-cyan: #06b6d4;  /* Ekrana özgü camgöbeği */
+            --accent-green: #22c55e; /* Emniyet yeşili */
+            --accent-amber: #f59e0b; /* Uyarı sarısı */
+            --accent-red: #ef4444;   /* Tehlike kırmızısı */
         }
-        body { background-color: var(--bg-main); color: var(--text-main); font-family: 'Segoe UI', system-ui, sans-serif; margin: 0; padding: 20px; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
-        .efb-panel { background-color: var(--bg-card); border-radius: 16px; box-shadow: 0 20px 40px rgba(0,0,0,0.5); width: 100%; max-width: 500px; padding: 30px; border: 1px solid #334155; }
-        .header { text-align: center; margin-bottom: 25px; border-bottom: 2px solid #334155; padding-bottom: 15px; }
-        .header h2 { margin: 0; color: var(--accent-cyan); font-size: 26px; letter-spacing: 1.5px; }
-        .header p { margin: 5px 0 0 0; color: var(--text-muted); font-size: 13px; text-transform: uppercase; letter-spacing: 1px; }
-        .input-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
+        body {
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .efb-panel {
+            background-color: var(--bg-card);
+            border-radius: 16px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+            width: 100%;
+            max-width: 500px;
+            padding: 30px;
+            border: 1px solid #334155;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 25px;
+            border-bottom: 2px solid #334155;
+            padding-bottom: 15px;
+        }
+        .header h2 {
+            margin: 0;
+            color: var(--accent-cyan);
+            font-size: 26px;
+            letter-spacing: 1.5px;
+        }
+        .header p {
+            margin: 5px 0 0 0;
+            color: var(--text-muted);
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .input-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
         .input-group { display: flex; flex-direction: column; }
-        label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px; font-weight: 600; }
-        input { background-color: #0f172a; border: 1px solid #334155; color: #fff; padding: 12px; border-radius: 8px; font-size: 16px; outline: none; transition: all 0.3s ease; }
-        input:focus { border-color: var(--accent-cyan); box-shadow: 0 0 8px rgba(6, 182, 212, 0.3); }
-        input[readonly] { background-color: #1e293b; color: var(--accent-cyan); font-weight: bold; border-style: dashed; }
-        .results-container { margin-top: 20px; background-color: #0f172a; border-radius: 12px; border: 1px solid #334155; padding: 20px; display: none; }
-        .data-row { display: flex; justify-content: space-between; margin-bottom: 15px; align-items: center; }
+        label {
+            font-size: 12px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin-bottom: 6px;
+            font-weight: 600;
+        }
+        input {
+            background-color: #0f172a;
+            border: 1px solid #334155;
+            color: #fff;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 16px;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+        input:focus {
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 8px rgba(6, 182, 212, 0.3);
+        }
+        button {
+            background-color: var(--accent-cyan);
+            color: #0f172a;
+            border: none;
+            padding: 16px;
+            border-radius: 8px;
+            width: 100%;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        button:hover { background-color: #0891b2; }
+        
+        .results-container {
+            margin-top: 20px;
+            background-color: #0f172a;
+            border-radius: 12px;
+            border: 1px solid #334155;
+            padding: 20px;
+            display: none; /* Hesaplama yapılana kadar gizli */
+        }
+        .data-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+            align-items: center;
+        }
         .data-item { text-align: left; }
-        .data-item span { display: block; font-size: 11px; color: var(--text-muted); text-transform: uppercase; }
-        .data-item strong { font-size: 24px; color: var(--text-main); }
+        .data-item span {
+            display: block;
+            font-size: 11px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+        .data-item strong {
+            font-size: 24px;
+            color: var(--text-main);
+        }
         .highlight { color: var(--accent-cyan) !important; }
-        .status-box { padding: 12px; border-radius: 8px; text-align: center; font-weight: 600; font-size: 14px; margin-bottom: 15px; }
+        
+        .status-box {
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
         .status-ok { background-color: rgba(34, 197, 94, 0.1); color: var(--accent-green); border: 1px solid var(--accent-green); }
         .status-warn { background-color: rgba(245, 158, 11, 0.1); color: var(--accent-amber); border: 1px solid var(--accent-amber); }
         .status-danger { background-color: rgba(239, 68, 68, 0.1); color: var(--accent-red); border: 1px solid var(--accent-red); }
-        canvas { width: 100%; height: 160px; background-color: #000; border-radius: 8px; border: 1px solid #334155; margin-top: 10px; }
+
+        /* Grafik Ekranı */
+        canvas {
+            width: 100%;
+            height: 160px;
+            background-color: #000;
+            border-radius: 8px;
+            border: 1px solid #334155;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
@@ -44,169 +153,185 @@
 <div class="efb-panel">
     <div class="header">
         <h2>DESCENT PLANNER</h2>
-        <p>Otomatik EFB Veri Linki</p>
+        <p>VFR & IFR Flight Profile Calculator</p>
     </div>
     
-    <div id="connectionStatus" class="status-box status-warn">FSUIPC BAĞLANTISI BEKLENİYOR...</div>
-
     <div class="input-grid">
-        <div class="input-group"><label>Mevcut İrtifa (FT)</label><input type="number" id="currentAlt" placeholder="---" readonly></div>
-        <div class="input-group"><label>Hedef İrtifa (FT)</label><input type="number" id="targetAlt" value="1500"></div>
-        <div class="input-group"><label>Yer Hızı - GS (KT)</label><input type="number" id="groundSpeed" placeholder="---" readonly></div>
-        <div class="input-group"><label>Kalan Mesafe (NM)</label><input type="number" id="distance" placeholder="---" readonly></div>
+        <div class="input-group">
+            <label>Mevcut İrtifa (FT)</label>
+            <input type="number" id="currentAlt" placeholder="Örn: 8500">
+        </div>
+        <div class="input-group">
+            <label>Hedef İrtifa (FT)</label>
+            <input type="number" id="targetAlt" placeholder="Örn: 1500">
+        </div>
+        <div class="input-group">
+            <label>Yer Hızı - GS (KT)</label>
+            <input type="number" id="groundSpeed" placeholder="Örn: 130">
+        </div>
+        <div class="input-group">
+            <label>Kalan Mesafe (NM)</label>
+            <input type="number" id="distance" placeholder="Örn: 35">
+        </div>
     </div>
+
+    <button onclick="calculateDescent()">PROFİLİ HESAPLA</button>
 
     <div class="results-container" id="resultBox">
         <div id="statusResult" class="status-box"></div>
+        
         <div class="data-row">
-            <div class="data-item"><span>İdeal TOD Noktası</span><strong id="todResult" class="highlight">--</strong> <strong>NM</strong></div>
-            <div class="data-item" style="text-align: right;"><span>Gerekli Çöküş (VSI)</span><strong id="vsiResult" class="highlight">--</strong> <strong>FPM</strong></div>
+            <div class="data-item">
+                <span>İdeal TOD Noktası</span>
+                <strong id="todResult" class="highlight">--</strong> <strong>NM</strong>
+            </div>
+            <div class="data-item" style="text-align: right;">
+                <span>Gerekli Çöküş (VSI)</span>
+                <strong id="vsiResult" class="highlight">--</strong> <strong>FPM</strong>
+            </div>
         </div>
+        
         <canvas id="flightProfileCanvas"></canvas>
     </div>
 </div>
 
 <script>
-    let simData = { currentAlt: 0, groundSpeed: 0, distance: 0, targetAlt: 1500 };
-    const fsuipcUrl = 'ws://localhost:2048/fsuipc/';
-    let socket;
-    let pollInterval;
+    function calculateDescent() {
+        let currentAlt = parseFloat(document.getElementById('currentAlt').value);
+        let targetAlt = parseFloat(document.getElementById('targetAlt').value);
+        let gs = parseFloat(document.getElementById('groundSpeed').value);
+        let dist = parseFloat(document.getElementById('distance').value);
 
-    function connectFSUIPC() {
-        socket = new WebSocket(fsuipcUrl, 'fsuipc');
-
-        socket.onopen = function() {
-            let statusEl = document.getElementById('connectionStatus');
-            statusEl.innerText = "SİMÜLATÖRE CANLI BAĞLI 🟢";
-            statusEl.className = "status-box status-ok";
-            document.getElementById('resultBox').style.display = "block";
-
-            // Değişkenleri tanıt
-            const declareVars = {
-                "command": "vars.declare",
-                "name": "efbLink",
-                "vars": [
-                    { "name": "altitude", "offset": 0x3324, "type": "int", "size": 4 },
-                    { "name": "gs_raw", "offset": 0x02B4, "type": "uint", "size": 4 },
-                    { "name": "dist", "offset": 0x60D4, "type": "double", "size": 8 }
-                ]
-            };
-            socket.send(JSON.stringify(declareVars));
-        };
-
-        socket.onmessage = function(event) {
-            const response = JSON.parse(event.data);
-            
-            // Eğer FSUIPC değişkenlerimizi kaydettiyse, zorla çekme (polling) döngüsünü başlat
-            if (response.command === "vars.declare" && response.success === true) {
-                if(pollInterval) clearInterval(pollInterval);
-                
-                // Saniyede 1 kere FSUIPC'den veriyi talep et
-                pollInterval = setInterval(() => {
-                    if (socket.readyState === WebSocket.OPEN) {
-                        socket.send(JSON.stringify({
-                            "command": "vars.read",
-                            "name": "efbLink"
-                        }));
-                    }
-                }, 1000);
-            }
-
-            // Gelen uçuş verilerini işle ve arayüze bas
-            if (response.command === "vars.read" && response.name === "efbLink" && response.data) {
-                simData.currentAlt = response.data.altitude || 0;
-                simData.distance = response.data.dist || 0;
-                
-                let rawGS = response.data.gs_raw || 0;
-                simData.groundSpeed = (rawGS / 65536) * 1.943844;
-
-                let targetInput = document.getElementById('targetAlt').value;
-                if(targetInput !== "") simData.targetAlt = parseFloat(targetInput);
-
-                document.getElementById('currentAlt').value = simData.currentAlt.toFixed(0);
-                document.getElementById('groundSpeed').value = simData.groundSpeed.toFixed(0);
-                document.getElementById('distance').value = simData.distance.toFixed(1);
-
-                if (simData.groundSpeed > 10 || simData.distance > 0) {
-                    processDescentProfile();
-                }
-            }
-        };
-
-        socket.onerror = function(error) { console.error("Hata:", error); };
-        socket.onclose = function() { 
-            if(pollInterval) clearInterval(pollInterval);
-            setTimeout(connectFSUIPC, 3000); 
-        };
-    }
-
-    function processDescentProfile() {
-        if(simData.currentAlt <= 0 || simData.groundSpeed <= 0) return;
-        let altToLose = simData.currentAlt - simData.targetAlt;
-        let tod = (altToLose / 1000) * 3;
-        let vsi = simData.groundSpeed * 5;
-        let pStatus = document.getElementById('statusResult');
-        
-        if (altToLose < 0) {
-            pStatus.innerText = "TIRMANIŞTASINIZ VEYA HEDEF İRTİFA YÜKSEK";
-            pStatus.className = "status-box status-warn";
+        if(isNaN(currentAlt) || isNaN(targetAlt) || isNaN(gs) || isNaN(dist)) {
+            alert("Lütfen tüm uçuş verilerini eksiksiz girin Kaptan!");
             return;
         }
 
-        if (simData.distance > tod) {
-            let remain = simData.distance - tod;
-            pStatus.innerText = "SEYRE DEVAM (" + remain.toFixed(1) + " NM SONRA ALÇAL)";
-            pStatus.className = "status-box status-ok";
+        let altToLose = currentAlt - targetAlt;
+        let tod = (altToLose / 1000) * 3;
+        let vsi = gs * 5;
+        let statusElement = document.getElementById('statusResult');
+        
+        // Durum Mantığı
+        if (dist > tod) {
+            let remain = dist - tod;
+            statusElement.innerText = "SEYRE DEVAM (" + remain.toFixed(1) + " NM SONRA ALÇAL)";
+            statusElement.className = "status-box status-ok";
         } else {
-            let requiredAltNow = simData.targetAlt + (simData.distance / 3) * 1000;
-            let diff = simData.currentAlt - requiredAltNow;
-            if (diff > 150) { pStatus.innerText = "PROFİLİN " + diff.toFixed(0) + " FT ÜSTÜNDESİN!"; pStatus.className = "status-box status-danger"; } 
-            else if (diff < -150) { pStatus.innerText = "PROFİLİN " + Math.abs(diff).toFixed(0) + " FT ALTINDASIN!"; pStatus.className = "status-box status-warn"; } 
-            else { pStatus.innerText = "PROFİL ÜZERİNDESİN, SÜZÜLÜŞ HARİKA!"; pStatus.className = "status-box status-ok"; }
+            let requiredAltNow = targetAlt + (dist / 3) * 1000;
+            let diff = currentAlt - requiredAltNow;
+            
+            if (diff > 100) {
+                statusElement.innerText = "PROFİLİN " + diff.toFixed(0) + " FT ÜSTÜNDESİN!";
+                statusElement.className = "status-box status-danger";
+            } else if (diff < -100) {
+                statusElement.innerText = "PROFİLİN " + Math.abs(diff).toFixed(0) + " FT ALTINDASIN!";
+                statusElement.className = "status-box status-warn";
+            } else {
+                statusElement.innerText = "PROFİL ÜZERİNDESİN, SÜZÜLÜŞ HARİKA!";
+                statusElement.className = "status-box status-ok";
+            }
         }
 
         document.getElementById('todResult').innerText = tod.toFixed(1);
         document.getElementById('vsiResult').innerText = vsi.toFixed(0);
-        drawCanvas(simData.currentAlt, simData.targetAlt, simData.distance, tod);
+        document.getElementById('resultBox').style.display = "block";
+
+        drawProfile(currentAlt, targetAlt, dist, tod);
     }
 
-    function drawCanvas(currentAlt, targetAlt, dist, tod) {
+    // Canvas üzerinde görselleştirme (G1000 tarzı)
+    function drawProfile(currentAlt, targetAlt, dist, tod) {
         const canvas = document.getElementById('flightProfileCanvas');
         const ctx = canvas.getContext('2d');
-        canvas.width = canvas.parentElement.clientWidth; canvas.height = 160;
-        const width = canvas.width; const height = canvas.height;
+        
+        // Cihaz piksel yoğunluğuna göre ayar
+        canvas.width = canvas.parentElement.clientWidth;
+        canvas.height = 160;
+        const width = canvas.width;
+        const height = canvas.height;
+
         ctx.clearRect(0, 0, width, height);
 
+        // Zemin çizgisi çiz
         const groundY = height - 30;
-        ctx.beginPath(); ctx.moveTo(20, groundY); ctx.lineTo(width - 20, groundY); ctx.strokeStyle = '#334155'; ctx.lineWidth = 3; ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(20, groundY);
+        ctx.lineTo(width - 20, groundY);
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 3;
+        ctx.stroke();
 
+        // Hedef (Meydan/VOR) İkonu çiz
         const targetX = width - 40;
-        ctx.fillStyle = '#06b6d4'; ctx.beginPath(); ctx.arc(targetX, groundY, 6, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#94a3b8'; ctx.font = '10px sans-serif'; ctx.fillText('HEDEF', targetX - 15, groundY + 15);
+        ctx.fillStyle = '#06b6d4';
+        ctx.beginPath();
+        ctx.arc(targetX, groundY, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '10px sans-serif';
+        ctx.fillText('HEDEF', targetX - 15, groundY + 15);
 
-        let todX = dist >= tod ? targetX - (width * 0.6) : 40;
-        const todY = 40;
+        // İdeal Süzülüş Hattını (Glide Path) çiz
+        let todX;
+        if (dist >= tod) {
+            // Uçak TOD'dan uzakta
+            todX = targetX - (width * 0.6); // TOD'u ekranda sabitle
+        } else {
+            // Uçak TOD'u geçmiş
+            todX = 40; // TOD ekranın solunda kalır
+        }
+        const todY = 40; // Üstteki ideal irtifa noktası
 
-        ctx.beginPath(); ctx.setLineDash([5, 5]); ctx.moveTo(todX, todY); ctx.lineTo(targetX, groundY); ctx.strokeStyle = '#22c55e'; ctx.lineWidth = 2; ctx.stroke(); ctx.setLineDash([]); 
+        ctx.beginPath();
+        ctx.setLineDash([5, 5]);
+        ctx.moveTo(todX, todY);
+        ctx.lineTo(targetX, groundY);
+        ctx.strokeStyle = '#22c55e'; // Yeşil kesikli çizgi
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.setLineDash([]); // Çizgi stilini sıfırla
 
-        ctx.fillStyle = '#22c55e'; ctx.beginPath(); ctx.arc(todX, todY, 4, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#fff'; ctx.fillText('TOD', todX - 10, todY - 10);
+        // İdeal TOD Noktasını işaretle
+        ctx.fillStyle = '#22c55e';
+        ctx.beginPath();
+        ctx.arc(todX, todY, 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.fillText('TOD', todX - 10, todY - 10);
 
+        // Uçağı Çiz (Pozisyonu hesaplayarak)
         let planeX, planeY;
         if (dist >= tod) {
-            planeY = todY; planeX = todX - ((dist - tod) * 5); if(planeX < 20) planeX = 20; 
+            // Seyir irtifasında düz uçuyor
+            planeY = todY;
+            planeX = todX - ((dist - tod) * 5); // TOD'un gerisinde
+            if(planeX < 20) planeX = 20; // Ekrandan taşmasın
         } else {
-            let progress = 1 - (dist / tod); planeX = todX + (progress * (targetX - todX));
-            let totalAltDiff = currentAlt - targetAlt; let initialAltDiff = (tod * 1000) / 3; 
-            let altRatio = totalAltDiff / initialAltDiff; if(altRatio > 1.2) altRatio = 1.2;
+            // Alçalma profilinde
+            let progress = 1 - (dist / tod); // 0 ile 1 arası
+            planeX = todX + (progress * (targetX - todX));
+            
+            // Gerçek irtifasına göre uçağın dikey pozisyonu
+            let totalAltDiff = currentAlt - targetAlt; // Kalan
+            let initialAltDiff = (tod * 1000) / 3; // Başlangıçta inilmesi gereken toplam
+            let altRatio = totalAltDiff / initialAltDiff; 
+            
+            // Eğer profilin çok üstündeyse ekrandan taşmasın diye sınırla
+            if(altRatio > 1.2) altRatio = 1.2;
+            
             planeY = groundY - (altRatio * (groundY - todY));
         }
 
-        ctx.font = '24px sans-serif'; ctx.fillText('✈️', planeX - 12, planeY + 8);
-        ctx.fillStyle = '#38bdf8'; ctx.font = '10px sans-serif'; ctx.fillText(`${dist.toFixed(1)} NM`, planeX - 10, planeY - 15);
+        ctx.font = '24px sans-serif';
+        ctx.fillText('✈️', planeX - 12, planeY + 8);
+        
+        // Uçak etiketini yaz
+        ctx.fillStyle = '#38bdf8';
+        ctx.font = '10px sans-serif';
+        ctx.fillText(`${dist} NM`, planeX - 10, planeY - 15);
     }
-
-    window.onload = function() { connectFSUIPC(); };
 </script>
+
 </body>
 </html>
